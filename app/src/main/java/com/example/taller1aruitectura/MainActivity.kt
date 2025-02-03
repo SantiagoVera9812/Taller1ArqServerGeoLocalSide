@@ -7,6 +7,8 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import android.hardware.TriggerEvent
+import android.hardware.TriggerEventListener
 import android.os.Bundle
 import android.os.Looper
 import android.util.Log
@@ -28,6 +30,7 @@ import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationResult
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
+import java.util.concurrent.Executors
 
 class MainActivity : AppCompatActivity(), SensorEventListener {
 
@@ -36,10 +39,13 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     private lateinit var locationRequest: LocationRequest
     private lateinit var locationCallback: LocationCallback
     private lateinit var sensorManager: SensorManager
-    private lateinit var acelometro: Sensor
-    private lateinit var giroscopio: Sensor
-
+    private var acelometro: Sensor? = null
+    private var giroscopio: Sensor? = null
+    private var significantMotionSensor: Sensor? = null
+    private val executor = Executors.newSingleThreadExecutor()
+    private var triggerEventListener: TriggerEventListener? = null
     private var alerts: Alerts = Alerts(this)
+    private var motionFound: Boolean = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -88,10 +94,27 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
             Log.e("error sensor", "giroscopio")
         }
 
+        try {
+            significantMotionSensor = sensorManager.getDefaultSensor(Sensor.TYPE_SIGNIFICANT_MOTION) ?: throw SensorNotAvailableException("Significant motion is not available")
+        } catch (e: SensorNotAvailableException){
+            Log.e("error sensor", "significant motion")
+        }
+
     }
 
     override fun onResume() {
         super.onResume()
+        significantMotionSensor?.let { sensor ->
+
+            triggerEventListener = object : TriggerEventListener() {
+                override fun onTrigger(event: TriggerEvent?) {
+                    Log.i("trigger sensor", "a trigger event has been detected")
+                    motionFound = true
+                }
+            }
+            // Register for significant motion events
+            sensorManager.requestTriggerSensor(triggerEventListener, sensor)
+        }
         sensorManager.registerListener(this, acelometro, SensorManager.SENSOR_DELAY_NORMAL)
         sensorManager.registerListener(this, giroscopio, SensorManager.SENSOR_DELAY_NORMAL)
     }
@@ -100,6 +123,8 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         super.onPause()
         sensorManager.unregisterListener(this, acelometro)
         sensorManager.unregisterListener(this, giroscopio)
+        sensorManager.cancelTriggerSensor(triggerEventListener, significantMotionSensor)
+        executor.shutdown()
     }
 
     private fun startLocationUpdates() {
@@ -130,6 +155,10 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                     val data = LocationData(location.latitude, location.longitude)
                     val newSensor = SensorServ(TipoSensor.LOCALIZACION, data)
                     Log.i(newSensor.tipo, "${newSensor.valor}")
+                    executor.submit{
+                        SensorServ.conectarseABroker(newSensor)
+                    }
+
                 }
 
         }
@@ -138,16 +167,27 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
     override fun onSensorChanged(event: SensorEvent?) {
 
+      if (motionFound  || significantMotionSensor == null) {
+
         if(event?.sensor?.type == Sensor.TYPE_ACCELEROMETER){
             val data = AccelerometerData(event.values)
             var newSensor = SensorServ(TipoSensor.ACELOMETRO, data)
             Log.i(newSensor.tipo, "${newSensor.valor}")
+           executor.submit{
+                SensorServ.conectarseABroker(newSensor)
+            }
         }
 
         if(event?.sensor?.type == Sensor.TYPE_GYROSCOPE){
             val data = GyroscopeData(event.values)
             var newSensor = SensorServ(TipoSensor.GIROSCOPIO, data)
-            Log.i(newSensor.tipo, "${newSensor.valor}")
+           Log.i(newSensor.tipo, "${newSensor.valor}")
+           executor.submit{
+                SensorServ.conectarseABroker(newSensor)
+                }
+        }
+
+            motionFound = false
         }
 
     }
