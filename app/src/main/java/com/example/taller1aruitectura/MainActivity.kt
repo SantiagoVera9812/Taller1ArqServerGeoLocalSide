@@ -30,7 +30,6 @@ import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationResult
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
-import java.util.concurrent.Executors
 
 class MainActivity : AppCompatActivity(), SensorEventListener {
 
@@ -42,7 +41,6 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     private var acelometro: Sensor? = null
     private var giroscopio: Sensor? = null
     private var significantMotionSensor: Sensor? = null
-    private val executor = Executors.newSingleThreadExecutor()
     private var triggerEventListener: TriggerEventListener? = null
     private var alerts: Alerts = Alerts(this)
     private var motionFound: Boolean = false
@@ -124,7 +122,6 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         sensorManager.unregisterListener(this, acelometro)
         sensorManager.unregisterListener(this, giroscopio)
         sensorManager.cancelTriggerSensor(triggerEventListener, significantMotionSensor)
-        executor.shutdown()
     }
 
     private fun startLocationUpdates() {
@@ -155,9 +152,6 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                     val data = LocationData(location.latitude, location.longitude)
                     val newSensor = SensorServ(TipoSensor.LOCALIZACION, data)
                     Log.i(newSensor.tipo, "${newSensor.valor}")
-                    executor.submit{
-                        SensorServ.conectarseABroker(newSensor)
-                    }
 
                 }
 
@@ -173,18 +167,14 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
             val data = AccelerometerData(event.values)
             var newSensor = SensorServ(TipoSensor.ACELOMETRO, data)
             Log.i(newSensor.tipo, "${newSensor.valor}")
-           executor.submit{
-                SensorServ.conectarseABroker(newSensor)
-            }
+
         }
 
         if(event?.sensor?.type == Sensor.TYPE_GYROSCOPE){
             val data = GyroscopeData(event.values)
             var newSensor = SensorServ(TipoSensor.GIROSCOPIO, data)
            Log.i(newSensor.tipo, "${newSensor.valor}")
-           executor.submit{
-                SensorServ.conectarseABroker(newSensor)
-                }
+
         }
 
             motionFound = false
