@@ -1,4 +1,4 @@
-package com.example.taller1aruitectura.ConexionSockets.ClienteSide;
+package com.example.taller1aruitectura.Bridge;
 
 
 import java.io.IOException;
@@ -7,10 +7,10 @@ import java.net.Socket;
 
 public class Conexion
 {
-    private final int PUERTO = 1234; //Puerto para la conexión
+    protected final int PUERTO = 1234; //Puerto para la conexión
     private final int PUERTO2 = 1235;
     private final int PUERTO3 = 1236;
-    private final String HOST = "localhost"; //Host para la conexión
+    protected final String HOST = "localhost"; //Host para la conexión
     protected ServerSocket ss; //Socket del servidor
     protected Socket cs; //Socket del cliente
 
@@ -33,10 +33,6 @@ public class Conexion
         } else if(tipo.equalsIgnoreCase("servidorop2")){
             ss2= new ServerSocket(PUERTO3);
             cs2 = new Socket();
-        }
-        else
-        {
-            cs = new Socket(HOST, PUERTO); //Socket para el cliente en localhost en puerto 1234
         }
     }
 }

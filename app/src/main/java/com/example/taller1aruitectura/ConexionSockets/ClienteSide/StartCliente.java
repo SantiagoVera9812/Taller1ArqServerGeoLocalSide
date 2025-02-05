@@ -1,5 +1,6 @@
-package com.example.taller1aruitectura.ConexionSockets;
+package com.example.taller1aruitectura.ConexionSockets.ClienteSide;
 
+import com.example.taller1aruitectura.ConexionSockets.ServerSide.StartServidor;
 import com.example.taller1aruitectura.Sensor.SensorData;
 
 import java.io.IOException;
@@ -9,9 +10,12 @@ public class StartCliente {
     private String tipo;
     private SensorData valor;
 
-    public StartCliente(String tipo, SensorData valor) {
+    private Cliente cliente;
+
+    public StartCliente(String tipo, SensorData valor) throws IOException {
         this.tipo = tipo;
         this.valor = valor;
+        this.cliente = new Cliente(tipo, valor);
     }
 
     public SensorData getValor() {
@@ -24,9 +28,12 @@ public class StartCliente {
 
     public static void star(StartCliente startCliente) throws IOException
     {
-        Cliente cli = new Cliente(startCliente.getTipo(), startCliente.getValor()); //Se crea el cliente
-
         System.out.println("Iniciando cliente\n");
-        cli.startClient(); //Se inicia el cliente
+        startCliente.cliente.startClient();
+
+    }
+
+    public void closeClient() {
+        cliente.closeClient();
     }
 }

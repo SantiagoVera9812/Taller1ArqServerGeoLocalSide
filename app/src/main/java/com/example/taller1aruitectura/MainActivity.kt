@@ -16,7 +16,9 @@ import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsAnimationCompat.Callback.DispatchMode
 import androidx.core.view.WindowInsetsCompat
+import com.example.taller1aruitectura.ConexionSockets.ServerSide.StartServidor
 import com.example.taller1aruitectura.Sensor.AccelerometerData
 import com.example.taller1aruitectura.Sensor.GyroscopeData
 import com.example.taller1aruitectura.Sensor.LocationData
@@ -30,6 +32,9 @@ import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationResult
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 class MainActivity : AppCompatActivity(), SensorEventListener {
 
@@ -43,6 +48,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     private var significantMotionSensor: Sensor? = null
     private var triggerEventListener: TriggerEventListener? = null
     private var alerts: Alerts = Alerts(this)
+    private lateinit var sensorServ: SensorServ
     private var motionFound: Boolean = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -98,6 +104,19 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
             Log.e("error sensor", "significant motion")
         }
 
+        val initialData = LocationData(0.0, 0.0) // Replace with actual initial data
+        sensorServ = SensorServ(TipoSensor.LOCALIZACION, initialData)
+
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                StartServidor.start()
+            } catch (e: Exception) {
+                Log.e("NetworkError", "Error sending data: ${e.message}")
+            }
+        }
+
+
+
     }
 
     override fun onResume() {
@@ -150,8 +169,16 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                 p0.locations.forEach{ location ->
                     Log.i("localizaciones desde el movil", "location: $location")
                     val data = LocationData(location.latitude, location.longitude)
-                    val newSensor = SensorServ(TipoSensor.LOCALIZACION, data)
-                    Log.i(newSensor.tipo, "${newSensor.valor}")
+                    sensorServ = SensorServ(TipoSensor.LOCALIZACION, data)
+                    Log.i(sensorServ.tipo, "${sensorServ.valor}")
+
+                    CoroutineScope(Dispatchers.IO).launch {
+                        try {
+                            SensorServ.envioCliente(sensorServ)
+                        } catch (e: Exception) {
+                            Log.e("NetworkError", "Error sending data: ${e.message}")
+                        }
+                    }
 
                 }
 
@@ -165,15 +192,30 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
         if(event?.sensor?.type == Sensor.TYPE_ACCELEROMETER){
             val data = AccelerometerData(event.values)
-            var newSensor = SensorServ(TipoSensor.ACELOMETRO, data)
-            Log.i(newSensor.tipo, "${newSensor.valor}")
+            sensorServ = SensorServ(TipoSensor.ACELOMETRO, data)
+            Log.i(sensorServ.tipo, "${sensorServ.valor}")
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    SensorServ.envioCliente(sensorServ)
+                } catch (e: Exception) {
+                    Log.e("NetworkError", "Error sending data: ${e.message}")
+                }
+            }
 
         }
 
         if(event?.sensor?.type == Sensor.TYPE_GYROSCOPE){
             val data = GyroscopeData(event.values)
-            var newSensor = SensorServ(TipoSensor.GIROSCOPIO, data)
-           Log.i(newSensor.tipo, "${newSensor.valor}")
+            sensorServ = SensorServ(TipoSensor.GIROSCOPIO, data)
+           Log.i(sensorServ.tipo, "${sensorServ.valor}")
+
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    SensorServ.envioCliente(sensorServ)
+                } catch (e: Exception) {
+                    Log.e("NetworkError", "Error sending data: ${e.message}")
+                }
+            }
 
         }
 
@@ -184,6 +226,11 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
 
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        sensorServ.closeClient()
     }
 
 }
