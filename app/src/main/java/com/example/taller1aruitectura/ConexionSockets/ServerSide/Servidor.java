@@ -6,44 +6,65 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
+import java.net.Socket;
 
-public class Servidor extends Conexion //Se hereda de conexión para hacer uso de los sockets y demás
-{
-    public Servidor() throws IOException {super("servidor");} //Se usa el constructor para servidor de Conexion
+public class Servidor extends Conexion {
 
-    public void startServer() throws IOException//Método para iniciar el servidor
-    {
+    public Servidor() throws IOException {
+        super("servidor");
+    }
 
-        System.out.println("Esperando..."); //Esperando conexión
+    public void startServer() throws IOException {
+        System.out.println("Servidor iniciado. Esperando conexiones...");
 
-        cs = ss.accept(); //Accept comienza el socket y espera una conexión desde un cliente
+        // aceptar continuamente la conexion de un cliente
+        while (true) {
+            // aceptar conexion
+            Socket clientSocket = ss.accept();
+            System.out.println("Cliente conectado: " + clientSocket.getInetAddress());
 
-        System.out.println("Cliente en línea");
-
-        //Se obtiene el flujo de salida del cliente para enviarle mensajes
-
-        //Se le envía un mensaje al cliente usando su flujo de salida
-        //Se obtiene el flujo entrante desde el cliente
-        BufferedReader entrada = new BufferedReader(new InputStreamReader(cs.getInputStream()));
-        PrintWriter out = new PrintWriter(cs.getOutputStream(), true);
-        out.println("Petición recibida y aceptada");
-        String mensajeCliente = "";
-        String datos="";
-
-        while ((mensajeCliente = entrada.readLine()) != null) {
-            if (mensajeCliente.equals("FIN")) {
-                break;
-            }
-            datos += mensajeCliente;
+            // hilo para cada cliente
+            new Thread(() -> handleClient(clientSocket)).start();
         }
+    }
 
-        System.out.println("El mensaje del cliente: " + datos);
+    private void handleClient(Socket clientSocket) {
+        try (
+                BufferedReader entrada = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+                PrintWriter out = new PrintWriter(clientSocket.getOutputStream(), true);
+        ) {
+            out.println("Petición recibida y aceptada");
 
+            String mensajeCliente;
+            StringBuilder datos = new StringBuilder();
 
-        out.println(datos);
+            // Read data from the client
+            while ((mensajeCliente = entrada.readLine()) != null) {
+                if (mensajeCliente.equals("FIN")) {
+                    break;
+                }
+                datos.append(mensajeCliente);
+            }
 
-        System.out.println("Fin de la conexión");
+            System.out.println("El mensaje del cliente: " + datos.toString());
 
-        ss.close();//Se finaliza la conexión con el cliente
+            // mandar data a el cliente
+            out.println(datos.toString());
+
+            System.out.println("Fin de la conexión con el cliente: " + clientSocket.getInetAddress());
+        } catch (IOException e) {
+            System.out.println("Error al manejar el cliente: " + e.getMessage());
+        } finally {
+            try {
+                clientSocket.close(); // cerrar el socket del cliente
+            } catch (IOException e) {
+                System.out.println("Error al cerrar el socket del cliente: " + e.getMessage());
+            }
+        }
+    }
+
+    public void closeServer() throws IOException {
+        ss.close();
+        System.out.println("Servidor cerrado.");
     }
 }

@@ -18,6 +18,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsAnimationCompat.Callback.DispatchMode
 import androidx.core.view.WindowInsetsCompat
+import com.example.taller1aruitectura.ConexionSockets.ServerSide.Servidor
 import com.example.taller1aruitectura.ConexionSockets.ServerSide.StartServidor
 import com.example.taller1aruitectura.Sensor.AccelerometerData
 import com.example.taller1aruitectura.Sensor.GyroscopeData
@@ -38,6 +39,8 @@ import kotlinx.coroutines.launch
 
 class MainActivity : AppCompatActivity(), SensorEventListener {
 
+
+
     private lateinit var fusedLocationClient: FusedLocationProviderClient
     private lateinit var binding: ActivityMainBinding
     private lateinit var locationRequest: LocationRequest
@@ -49,6 +52,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     private var triggerEventListener: TriggerEventListener? = null
     private var alerts: Alerts = Alerts(this)
     private lateinit var sensorServ: SensorServ
+    private lateinit var servidorSocket: Servidor
     private var motionFound: Boolean = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -60,6 +64,18 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
             val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
             insets
+        }
+
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                servidorSocket = Servidor() //Se crea el servidor
+
+                println("Iniciando servidor\n")
+                servidorSocket.startServer() //Se inicia el servidor
+
+            } catch (e: Exception) {
+                Log.e("NetworkError", "Error sending data: ${e.message}")
+            }
         }
 
         setupLocation()
@@ -106,14 +122,6 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
         val initialData = LocationData(0.0, 0.0) // Replace with actual initial data
         sensorServ = SensorServ(TipoSensor.LOCALIZACION, initialData)
-
-        CoroutineScope(Dispatchers.IO).launch {
-            try {
-                StartServidor.start()
-            } catch (e: Exception) {
-                Log.e("NetworkError", "Error sending data: ${e.message}")
-            }
-        }
 
 
 
@@ -194,6 +202,8 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
             val data = AccelerometerData(event.values)
             sensorServ = SensorServ(TipoSensor.ACELOMETRO, data)
             Log.i(sensorServ.tipo, "${sensorServ.valor}")
+
+
             CoroutineScope(Dispatchers.IO).launch {
                 try {
                     SensorServ.envioCliente(sensorServ)
@@ -231,6 +241,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     override fun onDestroy() {
         super.onDestroy()
         sensorServ.closeClient()
+        servidorSocket.closeServer()
     }
 
 }
